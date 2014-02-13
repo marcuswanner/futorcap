@@ -8,8 +8,8 @@
 #
 # Files (relative to datadir provided in argv[1]):
 #   keys/   contains all keys
-#       2014-02-12_14-49-10_UTC.pub     pubkey (timestamp of release)
-#       2014-02-12_14-49-10_UTC.priv    privkey (timestamp of release)
+#       2014-02-12_14-49-10_GMT.type.pub    pubkey (timestamp of release)
+#       2014-02-12_14-49-10_GMT.type.priv   privkey (timestamp of release)
 #   pub/    contains published keys
 #   conf    config file
 #       [timing]    section with release timing stuff
@@ -18,7 +18,27 @@
 #
 # TODO: Time source is very important. Use GPS.
 
-import configparser, time, os, datetime
+import configparser, time, os, datetime, shutil
+
+tsformat = "%Y-%m-%d_%H-%M-%S_%Z"
+tslen = 23
+
+def getkeytime(fname):
+    return datetime.strptime(fname[:tslen], tsformat)
+
+def maketimestamp(t):
+    ts = time.strftime("%Y-%m-%d_%H-%M-%S_%Z", time.gmtime(t))
+    ts.replace("_GMT")
+    return t
+
+def getcurtime():
+    return time.time() #yes, this is cheating
+
+##
+# Read keypairs available in directory
+# return a dict of key timestamps and types
+def getkeypairlist(keydir):
+    for fname in os.listdir(keydir)
 
 if __name__ == "__main__":
 
@@ -28,19 +48,24 @@ if __name__ == "__main__":
     conf = configparser.ConfigParser()
     conf.load([dd("conf")])
 
-    #verify current time
-    time = time.time()
-    #yes, this is cheating
+    curtime = getcurtime()
 
     #uppdate contents of pub directory
     def updatepub():
         pubdir = dd("pub")
-        pubdirlist = os.listdir(pubdir)
+        pubdirlist = os.listdir(pubdir) #TODO: use OS check for each file
         keydir = dd("keys")
         for fname in os.listdir(keydir):
             #copy any missing pubkeys to pub directory
+            if fname.endswith(".pub"):
+                if not fname in pubdirlist:
+                    shutil.copy(fname, pubdir)
             #copy any ready and missing privkeys to pub directory
-            #maybe remove really old keys from keydir
+            elif fname.endswith(".priv"):
+                t = getkeytime(fname)
+                if t >= curtime:
+                    shutil.copy(fname, pubdir)
+            #TODO: maybe remove really old keys from keydir
     updatepub()
 
     #calculate timestamps of keys to generate.
