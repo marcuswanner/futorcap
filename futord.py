@@ -50,21 +50,20 @@ if __name__ == "__main__":
 
     curtime = getcurtime()
 
+    pubdir = dd("pub")
+    keydir = dd("keys")
     #uppdate contents of pub directory
     def updatepub():
-        pubdir = dd("pub")
-        pubdirlist = os.listdir(pubdir) #TODO: use OS check for each file
-        keydir = dd("keys")
         for fname in os.listdir(keydir):
-            #copy any missing pubkeys to pub directory
-            if fname.endswith(".pub"):
-                if not fname in pubdirlist:
+            if not os.path.exists(os.path.join(pubdir, fname):
+                #copy any missing pubkeys to pub directory
+                if fname.endswith(".pub"):
                     shutil.copy(fname, pubdir)
-            #copy any ready and missing privkeys to pub directory
-            elif fname.endswith(".priv"):
-                t = getkeytime(fname)
-                if t >= curtime:
-                    shutil.copy(fname, pubdir)
+                #copy any ready and missing privkeys to pub directory
+                elif fname.endswith(".priv"):
+                    t = getkeytime(fname)
+                    if t >= curtime:
+                        shutil.copy(fname, pubdir)
             #TODO: maybe remove really old keys from keydir
     updatepub()
 
