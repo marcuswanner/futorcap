@@ -1,3 +1,9 @@
 [timing]
 interval = 10
 period = 60
+
+[generation]
+modules = openssl
+
+[generate_openssl]
+bits = 2048
