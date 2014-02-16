@@ -22,18 +22,19 @@
 #
 # TODO: Time source is very important. Use GPS.
 
-import configparser, time, os, datetime, shutil
+import configparser, time, os, datetime, shutil, sys
 
 tsformat = "%Y-%m-%d_%H-%M-%S_%Z"
 tslen = 23
 
 def getkeytime(fname):
-    return datetime.strptime(fname[:tslen], tsformat)
+    st = time.strptime(fname[:tslen], tsformat)
+    return time.mktime(st) - time.timezone
 
 def maketimestamp(t):
     ts = time.strftime("%Y-%m-%d_%H-%M-%S_%Z", time.gmtime(t))
     ts.replace("_GMT", "_UTC")
-    return t
+    return ts
 
 def getcurtime():
     return time.time() #yes, this is cheating
@@ -47,10 +48,11 @@ def genwithmodule(name, conf, pubfname, privfname):
     module.generate(**args)
 
 ##
+#FIXME: unused
 # Read keypairs available in directory
 # return a dict of key timestamps and types
-def getkeypairlist(keydir):
-    for fname in os.listdir(keydir)
+#def getkeypairlist(keydir):
+#    for fname in os.listdir(keydir)
 
 if __name__ == "__main__":
 
@@ -59,32 +61,32 @@ if __name__ == "__main__":
     sys.path.insert(0, datadir) #we import modules from here
     dd = lambda path: os.path.join(datadir, path)
     conf = configparser.ConfigParser()
-    conf.load([dd("conf")])
+    conf.read([dd("conf")])
 
     curtime = getcurtime()
 
     pubdir = dd("pub")
     keydir = dd("keys")
     #update contents of pub directory
-    def updatepub():
+    def updatepub(curtime):
         for fname in os.listdir(keydir):
-            if not os.path.exists(os.path.join(pubdir, fname):
+            if not os.path.exists(os.path.join(pubdir, fname)):
                 #copy any missing pubkeys to pub directory
                 if fname.endswith(".pub"):
-                    shutil.copy(fname, pubdir)
+                    shutil.copy(os.path.join(keydir, fname), pubdir)
                 #copy any ready and missing privkeys to pub directory
                 elif fname.endswith(".priv"):
                     t = getkeytime(fname)
-                    if t >= curtime:
-                        shutil.copy(fname, pubdir)
+                    if t <= curtime:
+                        shutil.copy(os.path.join(keydir, fname), pubdir)
             #TODO: maybe remove really old keys from keydir
     updatepub(curtime)
 
     #calculate timestamps of keys to generate.
     #find oldest existing key and work backwards.
     #if no existing key, start at now+period
-    period = conf.get("timing", "period")
-    interval = conf.get("timing", "interval")
+    period = int(conf.get("timing", "period"))
+    interval = int(conf.get("timing", "interval"))
     earliestkey = curtime + period
     for fname in os.listdir(keydir):
         #TODO: make sure both pub and privkeys are present for each pair

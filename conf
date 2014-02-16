@@ -1,9 +1,9 @@
 [timing]
-interval = 10
-period = 60
+interval = 30
+period = 300
 
 [generation]
 modules = openssl
 
 [generate_openssl]
-bits = 2048
+bits = 1024
