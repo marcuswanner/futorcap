@@ -83,22 +83,21 @@ if __name__ == "__main__":
     updatepub(curtime)
 
     #calculate timestamps of keys to generate.
-    #find oldest existing key and work backwards.
-    #if no existing key, start at now+period
+    #find latest (most-future) existing key and work forwards.
+    #if no existing key, start at now
     period = int(conf.get("timing", "period"))
     interval = int(conf.get("timing", "interval"))
-    earliestkey = curtime + period
+    latestkey = curtime
     for fname in os.listdir(keydir):
         #TODO: make sure both pub and privkeys are present for each pair
         keytime = getkeytime(fname)
-        if keytime < earliestkey:
-            earliestkey = keytime
+        if keytime > latestkey:
+            latestkey = keytime
 
-    #TODO: this loop is error-prone and needs to be checked for bugs
     togenerate = []
-    while earliestkey-interval > curtime:
-        togenerate.insert(0, earliestkey - interval)
-        earliestkey -= interval
+    while latestkey+interval <= curtime+period:
+        togenerate.append(latestkey + interval)
+        latestkey += interval
 
     #starting with soonest key, generate new key pairs,
     #between each pair, updatepub()
