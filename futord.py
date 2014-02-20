@@ -7,10 +7,18 @@
 # Requires GPG, OpenSSL, or some other key-generating tool.
 #
 # Files (relative to datadir provided in argv[1]):
-#   keys/   contains all keys
-#       2014-02-12_14-49-10_UTC.type.pub    pubkey (timestamp of release)
-#       2014-02-12_14-49-10_UTC.type.priv   privkey (timestamp of release)
+#   keys/   contains keygen directories
+#           (anything in a keygen dir that ends in .pub is immediately public)
+#       openssl/    openssl keygen's keys
+#           2014-02-12_14-49-10_UTC.pub     pubkey (timestamp of release)
+#           2014-02-12_14-49-10_UTC.priv    privkey (timestamp of release)
+#           root.pub                e.g. CA cert (optional, name not magic)
+#           root.priv               e.g. CA key (optional, name not magic)
+#           README.txt              encrypt/decrypt notes (optional, public)
 #   pub/    contains published keys
+#       openssl/    published openssl keys
+#           2014-02-12_14-49-10_UTC.pub
+#           root.pub
 #   conf    config file -- we trust data from this file!
 #       [timing]    section with release timing stuff
 #       period = 60     seconds between pubkey and privkey release
@@ -18,14 +26,19 @@
 #       [generation]    section with key generation module stuff
 #       modules = openssl   semicolon-separated keygen module list
 #       [generate_openssl]  keygen-specific configurations
-#       bits = 2048
+#       bits = 2048     key strength in bits
 #
 # TODO: Time source is very important. Use GPS.
+# TODO: Entropy source is important.
 
 import configparser, time, os, datetime, shutil, sys
 
 tsformat = "%Y-%m-%d_%H-%M-%S_%Z"
 tslen = 23
+
+#this should probably move to its own file once it's properly implemented
+def getcurtime():
+    return time.time() #yes, this is cheating
 
 def getkeytime(fname):
     st = time.strptime(fname[:tslen], tsformat)
@@ -36,23 +49,35 @@ def maketimestamp(t):
     ts.replace("_GMT", "_UTC")
     return ts
 
-def getcurtime():
-    return time.time() #yes, this is cheating
+def touchdir(path):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno == 17: #File exists
+            pass
+        else:
+            raise e
 
-def genwithmodule(name, conf, pubfname, privfname):
+#NOTE: these wrapper functions are prime candidates for a keygen class!
+def initkeygen(name, conf, keydir):
     module = __import__(name)
     sect = "generate_" + name
     args = {key: conf.get(sect, key) for key in conf.options(sect)}
-    args.update({"pubfname": pubfname, "privfname": privfname})
-    print(args)
+    args.update({"keydir": keydir})
+    module.init(**args)
+
+def genwithkeygen(name, conf, keydir, pubfname, privfname):
+    module = __import__(name)
+    sect = "generate_" + name
+    args = {key: conf.get(sect, key) for key in conf.options(sect)}
+    args.update({
+        "keydir": keydir,
+        "pubfname": pubfname,
+        "privfname": privfname,
+    })
+    print("keygen gen", args)
     module.generate(**args)
 
-##
-#FIXME: unused
-# Read keypairs available in directory
-# return a dict of key timestamps and types
-#def getkeypairlist(keydir):
-#    for fname in os.listdir(keydir)
 
 if __name__ == "__main__":
 
@@ -62,38 +87,72 @@ if __name__ == "__main__":
     dd = lambda path: os.path.join(datadir, path)
     conf = configparser.ConfigParser()
     conf.read([dd("conf")])
+    pubdir = dd("pub")
+    keydir = dd("keys")
+    touchdir(pubdir)
+    touchdir(keydir)
 
     curtime = getcurtime()
 
-    pubdir = dd("pub")
-    keydir = dd("keys")
+    #init keygens
+    keygens = conf.get("generation", "modules").split(";")
+    keygens = [k.strip(" ") for k in keygens]
+    for keygen in keygens:
+        keysubdir = os.path.join(keydir, keygen)
+        touchdir(keysubdir)
+        initkeygen(keygen, conf, keysubdir)
+
     #update contents of pub directory
     def updatepub(curtime):
-        for fname in os.listdir(keydir):
-            if not os.path.exists(os.path.join(pubdir, fname)):
-                #copy any missing pubkeys to pub directory
-                if fname.endswith(".pub"):
-                    shutil.copy(os.path.join(keydir, fname), pubdir)
-                #copy any ready and missing privkeys to pub directory
-                elif fname.endswith(".priv"):
-                    t = getkeytime(fname)
-                    if t <= curtime:
-                        shutil.copy(os.path.join(keydir, fname), pubdir)
+        for keysubdir in keygens:
+            pubsubdir = os.path.join(pubdir, keysubdir)
+            keysubdir = os.path.join(keydir, keysubdir)
+            touchdir(pubsubdir)
+            for fname in os.listdir(keysubdir):
+                #copy public files to pub directory
+                if fname.endswith(".pub") or fname == "README.txt":
+                    shutil.copy(os.path.join(keysubdir, fname),
+                                pubsubdir)
+                elif not os.path.exists(os.path.join(pubsubdir, fname)):
+                    #copy any ready and missing privkeys to pub directory
+                    if fname.endswith(".priv"):
+                        try:
+                            t = getkeytime(fname)
+                        except ValueError: #no timestamp: not to be public
+                            continue
+                        if t <= curtime:
+                            shutil.copy(os.path.join(keysubdir, fname),
+                                        pubsubdir)
             #TODO: maybe remove really old keys from keydir
     updatepub(curtime)
 
     #calculate timestamps of keys to generate.
     #find latest (most-future) existing key and work forwards.
-    #if no existing key, start at now
+    #if no key newer than now, start at now
+    #TODO: align to round minutes/hours
+    #NOTE: This will not generate missing keys if some but not all of the keys
+    #       for the latest interval exist. There isn't a lot we can do about
+    #       this, so we just assume that the intervals are generated in a
+    #       single step and won't have partially-present keys. The extent of
+    #       the breakage is permanently skipped keys for the incomplete
+    #       interval. The solution is to run this loop once for every keygen,
+    #       and due to the minimal chance of this situation and the minor
+    #       nature of the breakage, I will not make this change this at this
+    #       time for performance and code neatness reasons.
     period = int(conf.get("timing", "period"))
     interval = int(conf.get("timing", "interval"))
     latestkey = curtime
-    for fname in os.listdir(keydir):
-        #TODO: make sure both pub and privkeys are present for each pair
-        keytime = getkeytime(fname)
-        if keytime > latestkey:
-            latestkey = keytime
+    for keysubdir in keygens:
+        for fname in os.listdir(os.path.join(keydir, keysubdir)):
+            #NOTE: make sure both pub and privkeys are present for each pair?
+            try:
+                keytime = getkeytime(fname)
+            except ValueError: #file that doesn't have a timestamp
+                keytime = latestkey #no change this iteration
+            if keytime > latestkey:
+                latestkey = keytime
 
+    #make a list of new keys to generate
     togenerate = []
     while latestkey+interval <= curtime+period:
         togenerate.append(latestkey + interval)
@@ -102,13 +161,12 @@ if __name__ == "__main__":
     #starting with soonest key, generate new key pairs,
     #between each pair, updatepub()
     #be careful as this approach exposes approximate key generation times!
-    keygens = conf.get("generation", "modules").split(";")
-    keygens = [k.strip(" ") for k in keygens]
     for keytime in togenerate:
         for keygen in keygens:
             ts = maketimestamp(keytime)
-            pubfname = os.path.join(keydir, "{}.{}.pub".format(ts, keygen))
-            privfname = os.path.join(keydir, "{}.{}.priv".format(ts, keygen))
-            genwithmodule(keygen, conf, pubfname, privfname)
+            pubfname = "{}.pub".format(ts)
+            privfname = "{}.priv".format(ts)
+            keysubdir = os.path.join(keydir, keygen)
+            genwithkeygen(keygen, conf, keysubdir, pubfname, privfname)
         curtime = getcurtime()
         updatepub(curtime)

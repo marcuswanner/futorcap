@@ -1,6 +1,6 @@
 [timing]
-interval = 30
-period = 300
+interval = 600
+period = 7200
 
 [generation]
 modules = openssl
