@@ -4,14 +4,25 @@
 # The functions in this file need not guard against malicious args.
 
 README = """
-You can use the .pub keys to encrypt and .priv keys to decrypt. The .priv key
-for each .pub key will NOT be available before the timestamp listed in the
-filename.
+     __       _                              __       _                _
+    / _|_   _| |_ ___  _ __ ___ __ _ _ __   / _|_   _| |_ ___  _ __ __| |
+   | |_| | | | __/ _ \| '__/ __/ _` | '_ \ | |_| | | | __/ _ \| '__/ _` |
+   |  _| |_| | || (_) | | | (_| (_| | |_) ||  _| |_| | || (_) | | | (_| |
+   |_|  \__,_|\__\___/|_|  \___\__,_| .__(_)_|  \__,_|\__\___/|_|  \__,_|
+                                    |_|
+
+This directory contains a number of private and public keys with filenames which
+include timestamps at certain intervals. The public keys are released a certain
+amount of time before the private keys. It is impossible to obtain a private key
+before the time specified in the public key filename. This capability can be
+used to send messages which will be impossible to read until this time.
+
 
 The .priv files in this directory are openssl "key files" and the .pub files
-are openssl "cert files" in PEM format. You can encrypt like this:
+are openssl "cert files" in PEM format. Use the .pub keys to encrypt and .priv
+keys to decrypt. You can encrypt like this:
 
-openssl smime -encrypt -binary -aes-25r-cbc -in plainfilename \\
+openssl smime -encrypt -binary -aes-256-cbc -in plainfilename \\
         -out cipherfilename -outform DER 2014-02-20_05-13-33_UTC.pub
 
 And decrypt like this:
@@ -19,8 +30,8 @@ And decrypt like this:
 openssl smime -decrypt -binary -in cipherfilename -inform DER \\
         -out plainfilename -inkey 2014-02-20_05-13-33_UTC.priv
 
-The .pub files are all signed by root.pub. You should receive root.pub over
-a secure channel and verify normal timestamped .pub files using:
+The .pub files are all signed by root.pub. You should receive root.pub via a
+secure channel and verify all other .pub files like this:
 
 openssl verify -CAfile root.pub 2014-02-20_07-01-30_UTC.pub
 
