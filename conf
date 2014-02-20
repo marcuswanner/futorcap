@@ -7,3 +7,4 @@ modules = openssl
 
 [generate_openssl]
 bits = 1024
+instancename = Low Sec Prototype Env

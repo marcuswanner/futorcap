@@ -22,7 +22,9 @@ openssl smime -decrypt -binary -in cipherfilename -inform DER \\
 The .pub files are all signed by root.pub. You should receive root.pub over
 a secure channel and verify normal timestamped .pub files using:
 
+openssl verify -CAfile root.pub 2014-02-20_07-01-30_UTC.pub
 
+Make sure to check that the cert's Common Name matches the filename.
 
 
     Powered by futorcap.futord ~ GPL2 Copyright 2014 Marcus Wanner
@@ -35,7 +37,7 @@ import subprocess, os
 # be run often, so don't overwrite existing keys. You will get a keydir keyword
 # arg which provides a location for your keys, along with a str-format keyword
 # arg for each entry in your plugin's section of the config.
-def init(keydir=".", bits="2048"):
+def init(keydir=".", bits="2048", instancename="Generic Futord Instance"):
 
     privroot = os.path.join(keydir, "root.priv")
     pubroot = os.path.join(keydir, "root.pub")
@@ -53,8 +55,19 @@ def init(keydir=".", bits="2048"):
         c = subprocess.call(["openssl", "genrsa", "-out", privroot, bits])
         assert c == 0, "Root privkey generation failed"
     if makepubkey:
-        c = subprocess.call(["openssl", "req", "-batch", "-x509", "-new",
-                            "-nodes", "-key", privroot, "-out", pubroot])
+        c = subprocess.call(
+            "echo '"
+                "[ req ]\n"
+                "distinguished_name     = req_distinguished_name\n\n"
+                "prompt                 = no\n"
+                "[ req_distinguished_name ]\n"
+                "O                      = futorcap.futord\n"
+                "OU                     = {}\n"
+                "CN                     = Futord Root' | "
+                "openssl req -batch -config /dev/stdin -x509 -new -nodes"
+                " -key {} -out {}"
+                "".format(instancename, privroot, pubroot),
+            shell=True)
         assert c == 0, "Root pubkey generation failed"
 
     open(os.path.join(keydir, "README.txt"), "w").write(README)
@@ -65,7 +78,8 @@ def init(keydir=".", bits="2048"):
 # your keys will reside, in addition to the pubfname and privfname keyword
 # args which specify the names of the files this function will write relative
 # to the keydir.
-def generate(pubfname=None, privfname=None, keydir=".", bits="2048"):
+def generate(pubfname=None, privfname=None, keydir=".",
+        bits="2048", instancename="Generic Futord Instance"):
 
     assert pubfname is not None and privfname is not None, \
         "Both pubfname and privfname are required!"
@@ -77,7 +91,19 @@ def generate(pubfname=None, privfname=None, keydir=".", bits="2048"):
 
     privroot = os.path.join(keydir, "root.priv")
     pubroot = os.path.join(keydir, "root.pub")
-    c = subprocess.call("openssl req -batch -new -key {} | "
+    shortname = os.path.split(pubfname)[1]
+    c = subprocess.call(
+        "echo '"
+            "[ req ]\n"
+            "distinguished_name     = req_distinguished_name\n\n"
+            "prompt                 = no\n"
+            "[ req_distinguished_name ]\n"
+            "O                      = Futorcap\n"
+            "OU                     = {}\n"
+            "CN                     = {}' | "
+            "openssl req -batch -config /dev/stdin -new -key {} | "
             "openssl x509 -req -CA {} -CAkey {} -CAcreateserial -out {}"
-            "".format(privfname, pubroot, privroot, pubfname), shell=True)
+            "".format(instancename, shortname, privfname,
+                        pubroot, privroot, pubfname),
+        shell=True)
     assert c == 0, "Pubkey generation failed"
