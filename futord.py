@@ -58,25 +58,31 @@ def touchdir(path):
         else:
             raise e
 
-#NOTE: these wrapper functions are prime candidates for a keygen class!
-def initkeygen(name, conf, keydir):
-    module = __import__(name)
-    sect = "generate_" + name
-    args = {key: conf.get(sect, key) for key in conf.options(sect)}
-    args.update({"keydir": keydir})
-    module.init(**args)
+##
+# This object represents a keygen module and holds some useful data for it. The
+# init method is called automatically when the class is instantiated.
+class KeyGen():
 
-def genwithkeygen(name, conf, keydir, pubfname, privfname):
-    module = __import__(name)
-    sect = "generate_" + name
-    args = {key: conf.get(sect, key) for key in conf.options(sect)}
-    args.update({
-        "keydir": keydir,
-        "pubfname": pubfname,
-        "privfname": privfname,
-    })
-    print("keygen gen", args)
-    module.generate(**args)
+    def __init__(self, name, conf, keydir):
+        touchdir(keydir)
+        module = __import__(name)
+        sect = "generate_" + name
+        args = {key: conf.get(sect, key) for key in conf.options(sect)}
+        args.update({"keydir": keydir})
+        self.name, self.module, self.args = name, module, args
+        self.init() #call module init method
+
+    def init(self):
+        self.module.init(**self.args)
+
+    def generate(self, pubfname, privfname):
+        args = self.args.copy()
+        args.update({
+            "pubfname": pubfname,
+            "privfname": privfname,
+        })
+        print("keygen gen", args)
+        self.module.generate(**args)
 
 
 if __name__ == "__main__":
@@ -97,10 +103,10 @@ if __name__ == "__main__":
     #init keygens
     keygens = conf.get("generation", "modules").split(";")
     keygens = [k.strip(" ") for k in keygens]
+    keygendict = {}
     for keygen in keygens:
         keysubdir = os.path.join(keydir, keygen)
-        touchdir(keysubdir)
-        initkeygen(keygen, conf, keysubdir)
+        keygendict[keygen] = KeyGen(keygen, conf, keysubdir)
 
     #update contents of pub directory
     def updatepub(curtime):
@@ -166,7 +172,6 @@ if __name__ == "__main__":
             ts = maketimestamp(keytime)
             pubfname = "{}.pub".format(ts)
             privfname = "{}.priv".format(ts)
-            keysubdir = os.path.join(keydir, keygen)
-            genwithkeygen(keygen, conf, keysubdir, pubfname, privfname)
+            keygendict[keygen].generate(pubfname, privfname)
         curtime = getcurtime()
         updatepub(curtime)
