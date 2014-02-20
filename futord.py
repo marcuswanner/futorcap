@@ -45,9 +45,7 @@ def getkeytime(fname):
     return time.mktime(st) - time.timezone
 
 def maketimestamp(t):
-    ts = time.strftime("%Y-%m-%d_%H-%M-%S_%Z", time.gmtime(t))
-    ts.replace("_GMT", "_UTC")
-    return ts
+    return time.strftime("%Y-%m-%d_%H-%M-%S_UTC", time.gmtime(t))
 
 def touchdir(path):
     try:
