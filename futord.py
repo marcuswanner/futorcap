@@ -19,6 +19,7 @@
 #       openssl/    published openssl keys
 #           2014-02-12_14-49-10_UTC.pub
 #           root.pub
+#           README.txt
 #   conf    config file -- we trust data from this file!
 #       [timing]    section with release timing stuff
 #       period = 60     seconds between pubkey and privkey release
@@ -26,14 +27,15 @@
 #       [generation]    section with key generation module stuff
 #       modules = openssl   semicolon-separated keygen module list
 #       [generate_openssl]  keygen-specific configurations
-#       bits = 2048     key strength in bits
+#       bits = 2048                 key strength in bits
+#       instancename = My Futor     Name to use in certificates
 #
 # TODO: Time source is very important. Use GPS.
 # TODO: Entropy source is important.
 
 import configparser, time, os, datetime, shutil, sys
 
-tsformat = "%Y-%m-%d_%H-%M-%S_%Z"
+tsformat = "%Y-%m-%d_%H-%M-%S_UTC"
 tslen = 23
 
 #this should probably move to its own file once it's properly implemented
@@ -45,7 +47,7 @@ def getkeytime(fname):
     return time.mktime(st) - time.timezone
 
 def maketimestamp(t):
-    return time.strftime("%Y-%m-%d_%H-%M-%S_UTC", time.gmtime(t))
+    return time.strftime(tsformat, time.gmtime(t))
 
 def touchdir(path):
     try:
@@ -158,7 +160,7 @@ if __name__ == "__main__":
 
     #starting with soonest key, generate new key pairs,
     #between each pair, updatepub()
-    #be careful as this approach exposes approximate key generation times!
+    #be careful as this approach exposes approximate key generation duration!
     for keytime in togenerate:
         for keygen in keygens:
             ts = maketimestamp(keytime)
