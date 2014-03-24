@@ -22,10 +22,6 @@ class ThreadingTCPServer(ThreadingMixIn, TCPServer):
 
 class RequestHandler(BaseRequestHandler):
 
-    #def __init__(self, *args, **kwargs):
-    #    self.pubdir = loadconfig()["pubdir"]
-    #    super().__init__(*args, **kwargs)
-
     def handle(self):
         c = self.request
         while 1:
