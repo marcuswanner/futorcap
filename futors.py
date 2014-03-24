@@ -6,7 +6,7 @@
 # To get a list of keys of a certain type:
 #   'ls openssl\r\n'
 # To retreive a key:
-#   'ls openssl 2014-02-20_15-06-39_UTC.pub'
+#   'get openssl 2014-02-20_15-06-39_UTC.pub'
 # 
 # If you diverge from the protocol in any way, you will be disconnected.
 
