@@ -1,14 +1,20 @@
 ##
 # Protocol with no vulnerabilities intended for key listing and retreival.
-# 
+#
 # To get a list of key types:
 #   'ls\r\n'
 # To get a list of keys of a certain type:
 #   'ls openssl\r\n'
 # To retreive a key:
 #   'get openssl 2014-02-20_15-06-39_UTC.pub\r\n'
-# 
+#
 # If you diverge from the protocol in any way, you will be disconnected.
+#
+#       Vulnerability history:
+#  2014-03-24:  killjoy notes that the main validation regex does not include
+#               a termination character. No exploits possible with the
+#               current code (unless you put newlines in your filenames...).
+#               Thanks a bunch, $10 bounty!
 
 
 import re, os
@@ -35,7 +41,7 @@ class RequestHandler(BaseRequestHandler):
 
     def parseline(self, line):
         print(repr(line))
-        if not re.match("(get|ls)( [a-zA-Z0-9_\.\-]+)*\r\n", line):
+        if not re.match("(get|ls)( [a-zA-Z0-9_\.\-]+)*\r\n$", line):
             return
         line = line.strip("\r\n")
         cmd = line.split(" ")
