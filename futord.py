@@ -84,10 +84,7 @@ class KeyGen():
         print("keygen gen", args)
         self.module.generate(**args)
 
-
-if __name__ == "__main__":
-
-    #load config
+def loadconfig():
     datadir = sys.argv[1] if len(sys.argv) > 1 else "."
     sys.path.insert(0, datadir) #we import modules from here
     dd = lambda path: os.path.join(datadir, path)
@@ -95,6 +92,15 @@ if __name__ == "__main__":
     conf.read([dd("conf")])
     pubdir = dd("pub")
     keydir = dd("keys")
+    return {"datadir": datadir, "conf": conf,
+            "pubdir": pubdir, "keydir": keydir}
+
+if __name__ == "__main__":
+
+    c = loadconfig()
+    conf = c["conf"]
+    pubdir = c["pubdir"]
+    keydir = c["keydir"]
     touchdir(pubdir)
     touchdir(keydir)
 
