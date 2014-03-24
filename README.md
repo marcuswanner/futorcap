@@ -6,6 +6,8 @@ In a typical expected use case, a third party will maintain a secure "trusted pl
 
 ## But marcusw, trust sucks!
 
+I agree. However,
+
 ### The premises of futorcap are:
 
 1. No purely cryptographic primitive can make it possible to encrypt data until a certain date.
